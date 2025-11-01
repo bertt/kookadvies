@@ -4,6 +4,7 @@ Advice to boil water 2025-11-01 in area: https://bertt.github.io/kookadvies/
 
 News: https://www.vitens.nl/Storing-en-onderhoud/Kookadvies-drinkwater
 
+<img width="1266" height="367" alt="image" src="https://github.com/user-attachments/assets/3b0ac051-ddc8-455b-8f19-8870cd1c0920" />
 
 ## Method
 
