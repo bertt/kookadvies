@@ -2,48 +2,66 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <title>GeoJSON Viewer</title>
+  <title>GeoJSON Viewer met Hover Popup</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- MapLibre CSS -->
   <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
     body { margin: 0; padding: 0; }
-    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    #map { position: absolute; top: 40px; bottom: 0; width: 100%; }
+    #title {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 40px;
+      background: rgba(255,255,255,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+      font-size: 14px;
+      font-weight: bold;
+      z-index: 2;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
   </style>
 </head>
 <body>
+  <div id="title">
+    In this area, it is advised to boil water for 3 minutes before use — 11-01-2025
+  </div>
   <div id="map"></div>
 
   <!-- MapLibre JS -->
   <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
   <script>
-    // Initialize the map
     const map = new maplibregl.Map({
       container: 'map',
-      style: 'https://tiles.openfreemap.org/styles/liberty', // Open-source base map
-      center: [5.12, 52.09], // Midden Nederland (approx Utrecht)
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [5.12, 52.09],
       zoom: 10
     });
 
     map.on('load', () => {
-      // Voeg je GeoJSON toe
+      // Voeg GeoJSON bron toe
       map.addSource('postcodes', {
         type: 'geojson',
-        data: 'filtered_postcodes.geojson' // Zorg dat dit bestand in dezelfde map staat
+        data: 'filtered_postcodes.geojson'
       });
 
-      // Voeg een laag toe voor de geometrie
+      // Vulvlak
       map.addLayer({
         id: 'postcodes-fill',
         type: 'fill',
         source: 'postcodes',
         paint: {
-          'fill-color': '#088', // Kies een kleur
+          'fill-color': '#088',
           'fill-opacity': 0.4
         }
       });
 
-      // Voeg een lijnlaag toe voor contouren
+      // Contouren
       map.addLayer({
         id: 'postcodes-outline',
         type: 'line',
@@ -54,12 +72,56 @@
         }
       });
 
-      // Tooltip bij hover
-      map.on('mouseenter', 'postcodes-fill', (e) => {
+      // Highlight laag
+      map.addLayer({
+        id: 'postcodes-highlight',
+        type: 'fill',
+        source: 'postcodes',
+        paint: {
+          'fill-color': '#f00',
+          'fill-opacity': 0.5
+        },
+        filter: ['==', 'pc4_code', '']
+      });
+
+      // Herbruikbare popup
+      const popup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false
+      });
+
+      // Auto-zoom naar alle features met milde zoom
+      fetch('filtered_postcodes.geojson')
+        .then(response => response.json())
+        .then(data => {
+          const coordinates = data.features.flatMap(f => {
+            if (f.geometry.type === 'Polygon') return f.geometry.coordinates[0];
+            if (f.geometry.type === 'MultiPolygon') return f.geometry.coordinates.flat(1);
+            return [];
+          });
+          const lons = coordinates.map(c => c[0]);
+          const lats = coordinates.map(c => c[1]);
+          const bounds = [
+            [Math.min(...lons), Math.min(...lats)],
+            [Math.max(...lons), Math.max(...lats)]
+          ];
+          map.fitBounds(bounds, { 
+            padding: 80,  // meer marge rondom
+            maxZoom: 12   // voorkom te ver inzoomen
+          });
+        });
+
+      // Hover events
+      map.on('mousemove', 'postcodes-fill', (e) => {
         map.getCanvas().style.cursor = 'pointer';
         const pc4 = e.features[0].properties.pc4_code;
+
+        // Highlight het vlak
+        map.setFilter('postcodes-highlight', ['==', 'pc4_code', pc4]);
+
+        // Toon popup bij muis
         const coordinates = e.lngLat;
-        new maplibregl.Popup()
+        popup
           .setLngLat(coordinates)
           .setHTML(`<strong>PC4:</strong> ${pc4}`)
           .addTo(map);
@@ -67,7 +129,8 @@
 
       map.on('mouseleave', 'postcodes-fill', () => {
         map.getCanvas().style.cursor = '';
-        document.querySelectorAll('.mapboxgl-popup').forEach(p => p.remove());
+        map.setFilter('postcodes-highlight', ['==', 'pc4_code', '']);
+        popup.remove();
       });
     });
   </script>
