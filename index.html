@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>GeoJSON Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- MapLibre CSS -->
+  <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- MapLibre JS -->
+  <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+  <script>
+    // Initialize the map
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://tiles.openfreemap.org/styles/liberty', // Open-source base map
+      center: [5.12, 52.09], // Midden Nederland (approx Utrecht)
+      zoom: 10
+    });
+
+    map.on('load', () => {
+      // Voeg je GeoJSON toe
+      map.addSource('postcodes', {
+        type: 'geojson',
+        data: 'filtered_postcodes.geojson' // Zorg dat dit bestand in dezelfde map staat
+      });
+
+      // Voeg een laag toe voor de geometrie
+      map.addLayer({
+        id: 'postcodes-fill',
+        type: 'fill',
+        source: 'postcodes',
+        paint: {
+          'fill-color': '#088', // Kies een kleur
+          'fill-opacity': 0.4
+        }
+      });
+
+      // Voeg een lijnlaag toe voor contouren
+      map.addLayer({
+        id: 'postcodes-outline',
+        type: 'line',
+        source: 'postcodes',
+        paint: {
+          'line-color': '#000',
+          'line-width': 1
+        }
+      });
+
+      // Tooltip bij hover
+      map.on('mouseenter', 'postcodes-fill', (e) => {
+        map.getCanvas().style.cursor = 'pointer';
+        const pc4 = e.features[0].properties.pc4_code;
+        const coordinates = e.lngLat;
+        new maplibregl.Popup()
+          .setLngLat(coordinates)
+          .setHTML(`<strong>PC4:</strong> ${pc4}`)
+          .addTo(map);
+      });
+
+      map.on('mouseleave', 'postcodes-fill', () => {
+        map.getCanvas().style.cursor = '';
+        document.querySelectorAll('.mapboxgl-popup').forEach(p => p.remove());
+      });
+    });
+  </script>
+</body>
+</html>
